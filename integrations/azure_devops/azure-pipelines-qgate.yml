@@ -1,0 +1,64 @@
+# Azure DevOps pipeline for Q-GATE AI
+# Place in application repo root or reference as a template.
+# Secret variable: OPENAI_API_KEY (optional)
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+
+  - script: |
+      python -m pip install --upgrade pip
+      if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      if [ -f package.json ]; then
+        npm ci || npm install
+        if grep -q playwright package.json; then npx playwright install --with-deps chromium; fi
+      fi
+      pip install "qgate-ai @ git+https://dev.azure.com/YOUR_ORG/YOUR_PROJECT/_git/qgate-ai"
+    displayName: Install app deps and Q-GATE AI
+
+  - task: Cache@2
+    inputs:
+      key: 'qgate | "$(Agent.OS)" | $(Build.Repository.Name)'
+      path: .qgate
+    displayName: Cache .qgate (memory + reports)
+
+  - script: |
+      set -e
+      if [ -n "$(System.PullRequest.TargetBranch)" ]; then
+        TARGET="$(System.PullRequest.TargetBranch)"
+        TARGET="${TARGET#refs/heads/}"
+        git fetch origin "$TARGET" --depth=50
+        BASE="origin/$TARGET"
+      else
+        git fetch origin main --depth=50 2>/dev/null || git fetch origin master --depth=50
+        BASE="origin/main"
+      fi
+      qgate check --base "$BASE" --head "$(Build.SourceVersion)" --config qgate.yaml
+    displayName: Run Q-GATE AI
+    env:
+      OPENAI_API_KEY: $(OPENAI_API_KEY)
+
+  - task: PublishPipelineArtifact@1
+    condition: always()
+    inputs:
+      targetPath: .qgate/reports
+      artifact: qgate-reports

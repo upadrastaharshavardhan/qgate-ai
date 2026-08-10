@@ -1,0 +1,98 @@
+# Copy to your application repository as:
+#   .github/workflows/qgate.yml
+#
+# Requires: Python 3.12, git fetch of base branch, optional OPENAI_API_KEY secret.
+# Exit code 1 from `qgate check` fails the job (BLOCK).
+
+name: Q-GATE AI
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: qgate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install application dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip install -e . 2>/dev/null || true; fi
+          if [ -f package.json ]; then npm ci 2>/dev/null || npm install; fi
+
+      - name: Install Q-GATE AI
+        run: |
+          pip install -U pip
+          # Replace with your install source (PyPI, private git, or path)
+          pip install "qgate-ai @ git+https://github.com/YOUR_ORG/qgate-ai.git@main"
+
+      - name: Cache quality memory
+        uses: actions/cache@v4
+        with:
+          path: .qgate/memory.db
+          key: qgate-memory-${{ github.repository }}
+          restore-keys: |
+            qgate-memory-${{ github.repository }}
+
+      - name: Resolve base and head
+        id: refs
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=50
+            echo "base=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "head=HEAD" >> "$GITHUB_OUTPUT"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+              echo "base=$BEFORE" >> "$GITHUB_OUTPUT"
+            else
+              git fetch origin "${{ github.ref_name }}" --depth=50 || true
+              echo "base=origin/${{ github.ref_name }}^" >> "$GITHUB_OUTPUT"
+            fi
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright browsers if needed
+        run: |
+          if [ -f package.json ] && grep -q playwright package.json; then
+            npx playwright install --with-deps chromium
+          fi
+
+      - name: Run Q-GATE AI
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          qgate check \
+            --base "${{ steps.refs.outputs.base }}" \
+            --head "${{ steps.refs.outputs.head }}" \
+            --config qgate.yaml
+
+      - name: Upload Q-GATE reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qgate-reports
+          path: |
+            .qgate/reports/qgate-report.json
+            .qgate/reports/qgate-report.md
+            .qgate/reports/qgate-report.html
+          if-no-files-found: warn

@@ -1,0 +1,57 @@
+// Jenkins Declarative Pipeline for Q-GATE AI
+// Credential id `openai-api-key` is optional (Secret text).
+
+pipeline {
+  agent any
+  options {
+    timeout(time: 45, unit: 'MINUTES')
+    timestamps()
+  }
+  environment {
+    // Optional — remove if unused
+    OPENAI_API_KEY = credentials('openai-api-key')
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+        sh 'git fetch --all --depth=50 || true'
+      }
+    }
+    stage('Install') {
+      steps {
+        sh '''
+          python3.12 -m venv .venv || python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -U pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f package.json ]; then
+            npm ci || npm install
+            if grep -q playwright package.json; then npx playwright install --with-deps chromium; fi
+          fi
+          pip install "qgate-ai @ git+https://github.com/YOUR_ORG/qgate-ai.git@main"
+        '''
+      }
+    }
+    stage('Q-GATE') {
+      steps {
+        sh '''
+          . .venv/bin/activate
+          if [ -n "${CHANGE_TARGET:-}" ]; then
+            git fetch origin "${CHANGE_TARGET}" --depth=50
+            BASE="origin/${CHANGE_TARGET}"
+          else
+            git fetch origin main --depth=50 || git fetch origin master --depth=50
+            BASE="origin/main"
+          fi
+          qgate check --base "$BASE" --head "${GIT_COMMIT}" --config qgate.yaml
+        '''
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: '.qgate/reports/**', allowEmptyArchive: true
+    }
+  }
+}

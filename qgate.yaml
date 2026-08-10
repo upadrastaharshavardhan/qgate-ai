@@ -1,0 +1,102 @@
+project:
+  name: my-project
+  description: "Q-GATE AI configuration"
+
+quality_gate:
+  minimum_quality_score: 80
+  maximum_risk_score: 60
+  minimum_ai_confidence: 0.75
+  block_on:
+    - critical_security
+    - secret_detected
+    - build_failure
+    - targeted_test_failure
+    - critical_regression
+    - compilation_failure
+  warnings:
+    - medium_security
+    - missing_tests
+    - high_complexity
+    - low_coverage
+  require_full_regression_when:
+    risk_score: 75
+    changed_files: 25
+    critical_area_changed: true
+
+analysis:
+  security: true
+  architecture: true
+  dependencies: true
+  historical_analysis: true
+  test_impact_analysis: true
+  ai_code_review: true
+  semantic_impact: true
+
+scoring:
+  weights:
+    code_quality: 0.20
+    test_health: 0.20
+    security: 0.20
+    regression_risk: 0.20
+    architecture: 0.10
+    dependency_health: 0.05
+    ai_confidence: 0.05
+  risk_weights:
+    change_size: 0.15
+    complexity: 0.15
+    criticality: 0.20
+    historical_failure: 0.15
+    test_coverage: 0.10
+    dependency_impact: 0.10
+    security_impact: 0.15
+
+execution:
+  max_parallel_tests: 8
+  timeout_minutes: 30
+  sandbox: true
+  allowlist_commands:
+    - pytest
+    - python
+    - npm
+    - npx
+    - mvn
+    - gradle
+    - go
+    - dotnet
+
+llm:
+  provider: openai  # openai | azure | anthropic | google | ollama
+  model: gpt-4o-mini
+  temperature: 0.1
+  max_tokens: 4096
+  timeout_seconds: 60
+  # embedding_model: text-embedding-3-small
+
+repository:
+  ignore_patterns:
+    - "**/.git/**"
+    - "**/node_modules/**"
+    - "**/__pycache__/**"
+    - "**/.venv/**"
+    - "**/venv/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/.pytest_cache/**"
+    - "**/coverage/**"
+    - "**/*.pyc"
+
+logging:
+  level: INFO
+  structured: true
+
+memory:
+  enabled: true
+  backend: sqlite  # sqlite | postgres
+  path: .qgate/memory.db
+
+reporting:
+  formats:
+    - json
+    - html
+    - markdown
+  output_dir: .qgate/reports
