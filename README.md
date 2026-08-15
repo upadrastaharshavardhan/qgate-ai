@@ -1,7 +1,8 @@
 # Q-GATE AI
 
-<img width="287" height="188" alt="image" src="https://github.com/user-attachments/assets/33f0c51d-1793-41b6-a9d2-bb0c2347777f" />
-
+<p align="center">
+  <img width="287" height="188" alt="image" src="https://github.com/user-attachments/assets/33f0c51d-1793-41b6-a9d2-bb0c2347777f" />
+</p>
 
 ### AI-Powered Quality Gate for Every Git Change
 
@@ -15,6 +16,10 @@ It works against the **real repository** — real Git history, real file content
 
 ---
 
+
+<img width="1983" height="793" alt="image" src="https://github.com/user-attachments/assets/20063718-96b6-4e3a-aedc-df571fc37b0a" />
+
+---
 ## 🚀 Why Q-GATE AI?
 
 Traditional CI pipelines usually answer:
@@ -121,8 +126,6 @@ Instead of blindly running everything, Q-GATE AI builds a **change-aware quality
              JSON / MD / HTML               Exit Code
 ```
 
----
-<img width="1983" height="793" alt="image" src="https://github.com/user-attachments/assets/20063718-96b6-4e3a-aedc-df571fc37b0a" />
 
 
 ---
